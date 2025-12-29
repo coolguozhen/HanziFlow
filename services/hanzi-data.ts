@@ -9,6 +9,7 @@ import 'cnchar-voice';
 import 'cnchar-idiom';
 import 'cnchar-words';
 import { HanziInfo, SearchResult } from "../types";
+import { getFrequencySort } from "./frequency-data";
 
 // zdict.js 数据接口类型
 interface ZdictEntry {
@@ -258,7 +259,8 @@ const searchFromZdict = (pinyinPrefix: string): SearchResult[] => {
         });
 
         // 获取更多结果，因为后面会过滤掉无效的
-        if (results.length >= 20) break;
+        // 获取更多结果用于频率排序评分
+        if (results.length >= 100) break;
       }
     }
   }
@@ -315,7 +317,8 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
       : (typeof spellResult === 'string' ? [spellResult] : []);
 
     // 获取更多结果，因为后面会过滤掉无效的
-    for (const char of characters.slice(0, 20)) {
+    // 获取更多结果用于频率排序评分
+    for (const char of characters.slice(0, 100)) {
       if (foundChars.has(char)) continue;
       foundChars.add(char);
 
@@ -346,8 +349,8 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
 
     for (const result of zdictResults) {
       if (foundChars.has(result.char)) continue;
-      // 获取更多结果，因为后面会过滤掉无效的
-      if (results.length >= 20) break;
+      // 获取更多结果用于频率排序评分
+      if (results.length >= 100) break;
 
       foundChars.add(result.char);
       results.push(result);
@@ -383,7 +386,8 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
 
         if (foundChars.has(char)) continue;
         // 获取更多结果，因为后面会过滤掉无效的
-        if (results.length >= 20) break;
+        // 获取更多结果用于频率排序评分
+        if (results.length >= 100) break;
 
         foundChars.add(char);
         const pinyinResult = cnchar.spell(char, 'tone', 'low');
@@ -410,7 +414,8 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
       for (const result of zdictResults) {
         if (foundChars.has(result.char)) continue;
         // 获取更多结果，因为后面会过滤掉无效的
-        if (results.length >= 20) break;
+        // 获取更多结果用于频率排序评分
+        if (results.length >= 100) break;
 
         foundChars.add(result.char);
         results.push(result);
@@ -425,7 +430,12 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
     /[\u4e00-\u9fa5]/.test(result.char)
   );
 
-  return validResults.slice(0, 12);
+  // 按频率排序
+  const sortedResults = [...validResults].sort((a, b) => {
+    return getFrequencySort(a.char) - getFrequencySort(b.char);
+  });
+
+  return sortedResults.slice(0, 12);
 };
 
 // 获取汉字详情（使用 cnchar + zdict.js）
