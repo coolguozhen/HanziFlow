@@ -12,9 +12,11 @@
   "dependencies": {
     "@xiee/zdict": "^1.2.4",
     "cnchar": "^3.2.6",
+    "cnchar-idiom": "^3.2.6",
     "cnchar-poly": "^3.2.6",
     "cnchar-radical": "^3.2.6",
     "cnchar-voice": "^3.2.6",
+    "cnchar-words": "^3.2.6",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import SearchBar from './components/SearchBar';
 import TianZiGe from './components/TianZiGe';
-import { searchCharactersByPinyin, getCharacterDetails, speakText, getAudioContext } from './services/hanzi-data';
+import { searchCharactersByPinyin, getCharacterDetails, speakText, getAudioContext, getRandomInitialResults } from './services/hanzi-data';
 import { HanziInfo, SearchResult } from './types';
 
 const App: React.FC = () => {
@@ -55,9 +55,17 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // 初始化默认汉字
-    handleSearch('xue'); // 默认搜索 'xue' (学)
+    // 初始化随机汉字（确保有12个）
+    const init = async () => {
+      setLoading(true);
+      const data = await getRandomInitialResults();
+      setResults(data);
+      if (data.length > 0) handleSelectChar(data[0].char);
+      setLoading(false);
+    };
+    init();
   }, []);
+
 
   return (
     <div className="h-screen flex flex-col bg-[#fcfaf2] safe-area-inset overflow-hidden">
@@ -71,7 +79,7 @@ const App: React.FC = () => {
             <p className="hidden xs:block text-[10px] text-gray-400 tracking-widest uppercase font-semibold">HanziFlow Pro</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4">
           {(loading || loadingDetail) ? (
             <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 rounded-full border border-amber-100">
@@ -90,13 +98,12 @@ const App: React.FC = () => {
           <div className="p-4 md:p-6 flex-1 flex flex-col min-h-0">
             <SearchBar onSearch={handleSearch} isLoading={loading} />
             <div className="grid grid-cols-4 md:grid-cols-3 gap-3 overflow-y-auto pr-1 pb-4 custom-scrollbar">
-              {(results.length > 0 ? results : Array(12).fill({char:'?', pinyin:'...'}).map((x,i)=>({...x}))).map((res, idx) => (
+              {(results.length > 0 ? results : Array(12).fill({ char: '?', pinyin: '...' }).map((x, i) => ({ ...x }))).map((res, idx) => (
                 <button
                   key={idx}
                   onClick={() => res.char !== '?' && handleSelectChar(res.char)}
-                  className={`aspect-square bg-white rounded-xl shadow-sm border-2 flex flex-col items-center justify-center transition-all ${
-                    selectedChar === res.char ? 'border-red-500 bg-red-50 shadow-md' : 'border-transparent'
-                  } ${res.char === '?' ? 'opacity-30' : ''}`}
+                  className={`aspect-square bg-white rounded-xl shadow-sm border-2 flex flex-col items-center justify-center transition-all ${selectedChar === res.char ? 'border-red-500 bg-red-50 shadow-md' : 'border-transparent'
+                    } ${res.char === '?' ? 'opacity-30' : ''}`}
                 >
                   <span className="text-2xl md:text-3xl font-bold text-gray-800">{res.char}</span>
                   <span className="text-[10px] text-red-500/60 uppercase">{res.pinyin}</span>
@@ -110,7 +117,7 @@ const App: React.FC = () => {
         <section className="flex-1 overflow-y-auto p-4 md:p-10 bg-white/30 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-8 lg:gap-16 items-start">
             <div className="w-full lg:w-auto flex flex-col items-center lg:sticky lg:top-0">
-               <TianZiGe character={selectedChar} size={window.innerWidth < 768 ? 320 : 450} />
+              <TianZiGe character={selectedChar} size={window.innerWidth < 768 ? 320 : 450} />
             </div>
 
             <div className="flex-1 w-full space-y-8 pb-10">
@@ -119,15 +126,15 @@ const App: React.FC = () => {
                   <div className="flex items-end justify-between border-b-4 border-red-600 pb-8 mb-10">
                     <div>
                       <div className="flex items-center gap-4 mb-2">
-                         <h2 className="text-8xl font-black text-gray-900 leading-none cursor-pointer hover:text-red-700 transition-colors" onClick={() => handleSpeak(detail.character)}>
-                           {detail.character}
-                         </h2>
-                         <button 
-                            className={`px-4 py-2 rounded-full text-lg font-bold ${playingText === detail.character ? 'bg-green-500 scale-105' : 'bg-red-600'} text-white shadow-lg active:scale-95 transition-all`}
-                            onClick={() => handleSpeak(detail.character)}
-                          >
-                           {detail.pinyin} {playingText === detail.character ? '🔊' : '🔈'}
-                         </button>
+                        <h2 className="text-8xl font-black text-gray-900 leading-none cursor-pointer hover:text-red-700 transition-colors" onClick={() => handleSpeak(detail.character)}>
+                          {detail.character}
+                        </h2>
+                        <button
+                          className={`px-4 py-2 rounded-full text-lg font-bold ${playingText === detail.character ? 'bg-green-500 scale-105' : 'bg-red-600'} text-white shadow-lg active:scale-95 transition-all`}
+                          onClick={() => handleSpeak(detail.character)}
+                        >
+                          {detail.pinyin} {playingText === detail.character ? '🔊' : '🔈'}
+                        </button>
                       </div>
                       <p className="text-xl text-gray-400 font-medium tracking-widest">汉字详情</p>
                     </div>
@@ -142,16 +149,15 @@ const App: React.FC = () => {
                     <h3 className="text-sm font-bold text-red-800/40 uppercase mb-6 tracking-widest">组词</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       {detail.examples.map((ex, i) => (
-                        <button 
-                          key={i} 
+                        <button
+                          key={i}
                           onClick={() => handleSpeak(ex)}
-                          className={`group p-6 bg-white rounded-3xl shadow-sm border-2 flex items-center justify-between transition-all ${
-                            playingText === ex ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-transparent hover:border-red-100 hover:shadow-md'
-                          }`}
+                          className={`group p-6 bg-white rounded-3xl shadow-sm border-2 flex items-center justify-between transition-all ${playingText === ex ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-transparent hover:border-red-100 hover:shadow-md'
+                            }`}
                         >
                           <span className="text-3xl font-bold text-gray-800">{ex}</span>
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${playingText === ex ? 'bg-red-500 text-white animate-pulse' : 'bg-red-50 text-red-400'}`}>
-                             {playingText === ex ? '🔊' : '▶'}
+                            {playingText === ex ? '🔊' : '▶'}
                           </div>
                         </button>
                       ))}
