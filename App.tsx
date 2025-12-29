@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import SearchBar from './components/SearchBar';
 import TianZiGe from './components/TianZiGe';
-import { searchCharactersByPinyin, getCharacterDetails, speakText, getAudioContext } from './services/gemini';
+import { searchCharactersByPinyin, getCharacterDetails, speakText, getAudioContext } from './services/hanzi-data';
 import { HanziInfo, SearchResult } from './types';
 
 const App: React.FC = () => {
@@ -41,27 +41,16 @@ const App: React.FC = () => {
   const handleSpeak = async (text: string) => {
     if (playingText) return;
 
-    // 1. 同步唤醒 AudioContext (Android/iOS 必须)
-    const ctx = getAudioContext();
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-      } catch (e) {
-        console.warn("Resume failed", e);
-      }
-    }
-
     setPlayingText(text);
     try {
-      // 2. 传递 Context
-      await speakText(text, ctx);
+      // 使用浏览器内置TTS
+      await speakText(text, null as any);
+      // 估算语音时长
+      const duration = text.length * 200; // 每个字符约200ms
+      setTimeout(() => setPlayingText(null), duration);
     } catch (e) {
       console.error("Speak process failed:", e);
-      // 如果出错，立即重置状态
       setPlayingText(null);
-    } finally {
-      // 语音大概 1-2 秒，这里只是 UI 状态的重置，不需要非常精确
-      setTimeout(() => setPlayingText(null), 1500);
     }
   };
 
