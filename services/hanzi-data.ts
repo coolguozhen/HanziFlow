@@ -18,7 +18,7 @@ type ZdictEntry = Record<string, string[]>;
 // 缓存键名
 const CACHE_KEY = 'hanzi_meaning_cache';
 const ZDICT_CACHE_KEY = 'zdict_data_cache';
-const CACHE_VERSION = '3.1';
+const CACHE_VERSION = '4.0'; // 更新版本以强制重新加载新格式数据
 const CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30天
 
 // zdict.js 数据存储
@@ -86,10 +86,24 @@ const loadZdictData = async (): Promise<void> => {
           // 验证数据格式：应该是包含多个汉字键的对象
           const keyCount = data && typeof data === 'object' ? Object.keys(data).length : 0;
           if (keyCount > 100) {
-            ZDICT_DATA = data;
-            ZDICT_LOADED = true;
-            console.log(`从缓存加载 zdict 数据成功，共 ${keyCount} 个汉字`);
-            return;
+            // 额外验证：检查数据格式是否正确（新格式：char -> pinyin -> definitions）
+            // 随机抽取一个字符检查格式
+            const sampleChar = data["一"] || data["万"] || Object.values(data)[0];
+            if (sampleChar && typeof sampleChar === 'object') {
+              // 新格式：{ "yī": ["释义1", "释义2"] }
+              // 旧格式：{ "pinyin": "yī", "definitions": [...] }
+              const hasOldFormat = 'pinyin' in sampleChar || 'definitions' in sampleChar;
+
+              if (hasOldFormat) {
+                console.log('检测到旧格式缓存数据，将清除并重新加载');
+                localStorage.removeItem(ZDICT_CACHE_KEY);
+              } else {
+                ZDICT_DATA = data;
+                ZDICT_LOADED = true;
+                console.log(`从缓存加载 zdict 数据成功，共 ${keyCount} 个汉字`);
+                return;
+              }
+            }
           } else {
             console.log(`缓存数据格式不正确（只有 ${keyCount} 个键），将清除缓存并重新加载`);
             // 清除无效缓存
