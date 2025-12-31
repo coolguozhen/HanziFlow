@@ -439,10 +439,15 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
 
   // 按匹配程度 + 频率排序
   const sortedResults = [...validResults].sort((a, b) => {
-    // 获取无声调拼音
+    // 获取无声调拼音 - 安全处理字符串和数组
     const getNormPinyin = (p: string | string[]) => {
-      const pStr = Array.isArray(p) ? p[0] : p;
-      return removeTone(pStr || "");
+      let pStr: string;
+      if (Array.isArray(p)) {
+        pStr = p[0] || "";
+      } else {
+        pStr = p || "";
+      }
+      return removeTone(pStr);
     };
 
     const aNorm = getNormPinyin(a.pinyin);
