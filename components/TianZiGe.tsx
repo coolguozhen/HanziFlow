@@ -10,13 +10,15 @@ const TianZiGe: React.FC<TianZiGeProps> = ({ character, size = 400 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const writerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isQuizMode, setIsQuizMode] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || !character) return;
 
     // 1. 切换汉字时立即重置状态并停止任何正在进行的动画
     setIsPlaying(false);
-    
+    setIsQuizMode(false);
+
     const cleanupWriter = () => {
       if (writerRef.current) {
         try {
@@ -96,6 +98,7 @@ const TianZiGe: React.FC<TianZiGeProps> = ({ character, size = 400 }) => {
 
   const handleAnimate = () => {
     if (writerRef.current && !isPlaying) {
+      setIsQuizMode(false);
       setIsPlaying(true);
       // 再次确认 animateCharacter 存在
       if (typeof writerRef.current.animateCharacter === 'function') {
@@ -111,32 +114,37 @@ const TianZiGe: React.FC<TianZiGeProps> = ({ character, size = 400 }) => {
   const handleQuiz = () => {
     if (writerRef.current) {
       setIsPlaying(false);
+      setIsQuizMode(true);
       if (typeof writerRef.current.cancelAnimation === 'function') {
         writerRef.current.cancelAnimation();
       }
       if (typeof writerRef.current.quiz === 'function') {
-        writerRef.current.quiz();
+        writerRef.current.quiz({
+          onComplete: () => {
+            setIsQuizMode(false);
+          }
+        });
       }
     }
   };
 
   return (
     <div className="flex flex-col items-center space-y-6">
-      <div 
-        ref={containerRef} 
-        className="bg-white rounded-xl shadow-[0_20px_50px_rgba(185,28,28,0.1)] border-4 border-red-50 p-2 cursor-pointer transition-all active:scale-[0.98] select-none"
-        onClick={handleAnimate}
+      <div
+        ref={containerRef}
+        className={`bg-white rounded-xl shadow-[0_20px_50px_rgba(185,28,28,0.1)] border-4 border-red-50 p-2 transition-all select-none ${isQuizMode ? 'cursor-crosshair' : 'cursor-pointer active:scale-[0.98]'
+          }`}
+        onClick={() => !isQuizMode && handleAnimate()}
       />
-      
+
       <div className="flex flex-wrap justify-center gap-5">
-        <button 
+        <button
           onClick={handleAnimate}
           disabled={isPlaying}
-          className={`px-10 py-4 rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center gap-3 min-w-[180px] justify-center ${
-            isPlaying 
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' 
+          className={`px-10 py-4 rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center gap-3 min-w-[180px] justify-center ${isPlaying
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
             : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-red-200/50 active:bg-red-800'
-          }`}
+            }`}
         >
           {isPlaying ? (
             <>
@@ -148,18 +156,21 @@ const TianZiGe: React.FC<TianZiGeProps> = ({ character, size = 400 }) => {
             </>
           ) : (
             <>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
               <span className="text-lg">演示笔顺</span>
             </>
           )}
         </button>
-        
-        <button 
+
+        <button
           onClick={handleQuiz}
-          className="px-10 py-4 bg-white text-amber-700 border-2 border-amber-500 rounded-2xl font-bold shadow-md hover:bg-amber-50 transition-all active:scale-95 flex items-center gap-3 min-w-[180px] justify-center"
+          className={`px-10 py-4 rounded-2xl font-bold shadow-md transition-all active:scale-95 flex items-center gap-3 min-w-[180px] justify-center ${isQuizMode
+              ? 'bg-amber-500 text-white border-2 border-amber-600 shadow-amber-200/50'
+              : 'bg-white text-amber-700 border-2 border-amber-500 hover:bg-amber-50'
+            }`}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          <span className="text-lg">书写练习</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+          <span className="text-lg">{isQuizMode ? '正在练习' : '书写练习'}</span>
         </button>
       </div>
       <p className="text-gray-400 text-sm text-center px-4 font-medium italic opacity-80">点击演示慢慢观察笔顺，或进入书写练习挑战</p>
