@@ -1,14 +1,12 @@
 
-name: Deploy to GitHub Pages
+name: Deploy to Firebase Hosting
 
 on:
   push:
-    branches: [ main, master ] # 当代码推送到 main 或 master 分支时触发
+    branches: [ main, master ]
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   build-and-deploy:
@@ -32,16 +30,13 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_KEY: ${{ secrets.VITE_API_KEY }} # 在 GitHub Secrets 中配置 VITE_API_KEY
+          VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          path: './dist'
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HANZIFLOW }}
+          projectId: hanziflow
+          channelId: live
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

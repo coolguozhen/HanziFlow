@@ -17,6 +17,7 @@
     "cnchar-radical": "^3.2.6",
     "cnchar-voice": "^3.2.6",
     "cnchar-words": "^3.2.6",
+    "firebase": "^12.8.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
