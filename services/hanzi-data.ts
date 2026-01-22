@@ -331,21 +331,13 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
   }
 
   const results: SearchResult[] = [];
-  const foundKeys = new Set<string>(); // 用于去重 (char + pinyin)
-  const foundChars = new Set<string>(); // 用于标记已找到的汉字 (防止 cnchar 重复添加)
+  const foundChars = new Set<string>(); // 用于标记已找到的汉字，确保每个汉字只出现一次
 
   // 辅助函数：添加结果
   const addResult = (result: SearchResult) => {
-    // 构造唯一键：字符+拼音
-    // 安全处理 pinyin 可能是字符串或数组的情况
-    const pinyinStr = Array.isArray(result.pinyin)
-      ? result.pinyin.join('/')
-      : result.pinyin;
-    const key = `${result.char}_${pinyinStr}`;
+    // 只需要展示一个汉字，即使是多音字（其读音在详情页会完整展示）
+    if (!result.char || foundChars.has(result.char)) return;
 
-    if (foundKeys.has(key)) return;
-
-    foundKeys.add(key);
     foundChars.add(result.char);
     results.push(result);
   };
