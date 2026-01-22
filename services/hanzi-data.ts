@@ -489,32 +489,43 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
 
   // 按匹配程度 + 频率排序
   const sortedResults = [...validResults].sort((a, b) => {
-    // 获取无声调拼音 - 安全处理字符串和数组
-    const getNormPinyin = (p: string | string[]) => {
-      let pStr: string;
-      if (Array.isArray(p)) {
-        pStr = p[0] || "";
-      } else {
-        pStr = p || "";
+    // 辅助函数：针对搜索词获取该结果的最佳匹配拼音
+    const getBestNormPinyin = (pLabel: string | string[]) => {
+      const pStr = Array.isArray(pLabel) ? (pLabel[0] || "") : (pLabel || "");
+      if (pStr.includes('/')) {
+        const parts = pStr.split('/').map(p => removeTone(p));
+        // 1. 寻找完全匹配
+        const exact = parts.find(p => p === normalizedPinyin);
+        if (exact) return exact;
+        // 2. 寻找前缀匹配
+        const prefixed = parts.find(p => p.startsWith(normalizedPinyin));
+        if (prefixed) return prefixed;
+        return parts[0];
       }
       return removeTone(pStr);
     };
 
-    const aNorm = getNormPinyin(a.pinyin);
-    const bNorm = getNormPinyin(b.pinyin);
+    const aNorm = getBestNormPinyin(a.pinyin);
+    const bNorm = getBestNormPinyin(b.pinyin);
 
-    // 1. 优先完全匹配 (如果 normalizedPinyin 和搜索词一样)
-    // 虽然字母排序通常能处理，但显式处理更安全
-    // 比如搜索 "an"，"an" < "ang"。
+    // 1. 优先完全匹配搜索词 (如: 搜索 "he", 结果 "he" 优于 "hei")
+    const aIsExact = aNorm === normalizedPinyin;
+    const bIsExact = bNorm === normalizedPinyin;
+    if (aIsExact !== bIsExact) return aIsExact ? -1 : 1;
 
-    // 字母顺序排序 (实现了 wan 在 wang 前面，也实现了 grouping)
+    // 2. 核心排序：按字频排序 (如: 搜索 "h", 常用字 "和" 优于 "哈")
+    const aFreq = getFrequencySort(a.char);
+    const bFreq = getFrequencySort(b.char);
+    if (aFreq !== bFreq) {
+      return aFreq - bFreq;
+    }
+
+    // 3. 次要排序：按拼音字母顺序
     if (aNorm !== bNorm) {
-      // 那个跟搜索词长度越接近（越短）的通常越靠前（字母序 naturally handles prefixes: a < ab）
       return aNorm.localeCompare(bNorm);
     }
 
-    // 2. 同拼音，按字频排序
-    return getFrequencySort(a.char) - getFrequencySort(b.char);
+    return 0;
   });
 
   return sortedResults;
