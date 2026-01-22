@@ -1,9 +1,23 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import SearchBar from './components/SearchBar';
-import TianZiGe from './components/TianZiGe';
+import SearchResultGrid from './components/SearchResultGrid';
+import CharacterDetailCard from './components/CharacterDetailCard';
 import { searchCharactersByPinyin, getCharacterDetails, speakText, getRandomInitialResults } from './services/hanzi-data';
 import { HanziInfo, SearchResult } from './types';
+
+// 使用 React.lazy 懒加载 TianZiGe 组件，减小首屏加载体积
+const TianZiGe = lazy(() => import('./components/TianZiGe'));
+
+// TianZiGe 加载时的占位组件
+const TianZiGeFallback: React.FC<{ size: number }> = ({ size }) => (
+  <div
+    className="bg-white rounded-xl shadow-lg border-4 border-red-50 flex items-center justify-center"
+    style={{ width: size, height: size }}
+  >
+    <div className="animate-pulse text-gray-300 text-lg">加载中...</div>
+  </div>
+);
 
 const App: React.FC = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -95,6 +109,8 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // 计算 TianZiGe 的尺寸
+  const tianZiGeSize = windowWidth < 640 ? 260 : (windowWidth < 1280 ? 300 : 380);
 
   return (
     <div className="h-screen flex flex-col bg-[#fcfaf2] safe-area-inset overflow-hidden">
@@ -133,34 +149,12 @@ const App: React.FC = () => {
         <aside className="w-full md:w-[260px] lg:w-[280px] border-r border-red-50 bg-[#faf8f0] flex flex-col overflow-hidden">
           <div className="p-4 md:p-6 flex-1 flex flex-col min-h-0">
             <SearchBar onSearch={handleSearch} isLoading={loading} />
-            <div className="grid grid-cols-4 md:grid-cols-3 gap-3 overflow-y-auto pr-1 pb-4 custom-scrollbar">
-              {results.length > 0 ? (
-                results.map((res, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectChar(res.char)}
-                    className={`aspect-square bg-white rounded-xl shadow-sm border-2 flex flex-col items-center justify-center transition-all ${selectedChar === res.char ? 'border-red-500 bg-red-50 shadow-md' : 'border-transparent'
-                      }`}
-                  >
-                    <span className="text-2xl md:text-3xl font-bold text-gray-800">{res.char}</span>
-                    <span className="text-[10px] text-red-500/60 uppercase">
-                      {Array.isArray(res.pinyin) ? res.pinyin.join('/') : res.pinyin}
-                    </span>
-                  </button>
-                ))
-              ) : loading ? (
-                Array(12).fill(0).map((_, idx) => (
-                  <div key={idx} className="aspect-square bg-white rounded-xl border-2 border-transparent animate-pulse flex flex-col items-center justify-center">
-                    <div className="w-8 h-8 bg-gray-100 rounded mb-1"></div>
-                    <div className="w-10 h-2 bg-gray-50 rounded"></div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-full py-10 text-center text-gray-400 text-xs">
-                  未找到匹配汉字
-                </div>
-              )}
-            </div>
+            <SearchResultGrid
+              results={results}
+              selectedChar={selectedChar}
+              loading={loading}
+              onSelectChar={handleSelectChar}
+            />
           </div>
         </aside>
 
@@ -168,58 +162,18 @@ const App: React.FC = () => {
         <section className="flex-1 overflow-y-auto p-4 md:p-10 bg-white/30 backdrop-blur-sm">
           <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 lg:gap-12 items-start">
             <div className="w-full lg:w-auto flex flex-col items-center lg:sticky lg:top-8">
-              <TianZiGe
-                character={selectedChar}
-                size={
-                  windowWidth < 640 ? 260 : (windowWidth < 1280 ? 300 : 380)
-                }
-              />
+              <Suspense fallback={<TianZiGeFallback size={tianZiGeSize} />}>
+                <TianZiGe character={selectedChar} size={tianZiGeSize} />
+              </Suspense>
             </div>
 
             <div className="flex-1 w-full space-y-8 pb-10">
               {detail ? (
-                <div className="animate-fade-in">
-                  <div className="flex items-end justify-between border-b-4 border-red-600 pb-8 mb-10">
-                    <div>
-                      <div className="flex items-center gap-4 mb-2">
-                        <h2 className="text-6xl sm:text-7xl lg:text-8xl font-black text-gray-900 leading-none cursor-pointer hover:text-red-700 transition-colors" onClick={() => handleSpeak(detail.character)}>
-                          {detail.character}
-                        </h2>
-                        <button
-                          className={`px-4 py-2 rounded-full text-lg font-bold ${playingText === detail.character ? 'bg-green-500 scale-105' : 'bg-red-600'} text-white shadow-lg active:scale-95 transition-all`}
-                          onClick={() => handleSpeak(detail.character)}
-                        >
-                          {Array.isArray(detail.pinyin) ? detail.pinyin.join(' / ') : detail.pinyin} {playingText === detail.character ? '🔊' : '🔈'}
-                        </button>
-                      </div>
-                      <p className="text-xl text-gray-400 font-medium tracking-widest">汉字详情</p>
-                    </div>
-                  </div>
-
-                  <div className="mb-12">
-                    <h3 className="text-sm font-bold text-red-800/40 uppercase mb-4 tracking-widest">释义</h3>
-                    <p className="text-2xl md:text-3xl text-gray-800 leading-relaxed font-serif whitespace-pre-wrap">{detail.meaning}</p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-bold text-red-800/40 uppercase mb-6 tracking-widest">组词</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {detail.examples.map((ex, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleSpeak(ex)}
-                          className={`group p-6 bg-white rounded-3xl shadow-sm border-2 flex items-center justify-between transition-all ${playingText === ex ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-transparent hover:border-red-100 hover:shadow-md'
-                            }`}
-                        >
-                          <span className="text-2xl md:text-3xl font-bold text-gray-800">{ex}</span>
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${playingText === ex ? 'bg-red-500 text-white animate-pulse' : 'bg-red-50 text-red-400'}`}>
-                            {playingText === ex ? '🔊' : '▶'}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <CharacterDetailCard
+                  detail={detail}
+                  playingText={playingText}
+                  onSpeak={handleSpeak}
+                />
               ) : (
                 <div className="h-[400px] flex items-center justify-center text-gray-300">
                   <span className="animate-pulse">AI 正在解析汉字...</span>
