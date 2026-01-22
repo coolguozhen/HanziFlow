@@ -1,9 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HanziFlow - 汉字学习</title>
     <!-- Android App Capable -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -11,12 +12,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="汉字流">
     <meta name="theme-color" content="#b91c1c">
-    
+
     <!-- SEO Meta Tags -->
     <meta name="description" content="HanziFlow - 一个简约而强大的汉字学习与练习工具。支持汉字笔顺演示、拼音查询、释义浏览以及字帖练习。">
     <meta name="keywords" content="汉字, 学习, 笔顺, 拼音, 字典, 练习, Hanzi Flow, Chinese Learning">
     <meta name="author" content="HanziFlow Team">
-    
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hanziflow.web.app/">
@@ -31,13 +32,31 @@
     <meta property="twitter:description" content="HanziFlow - 一个简约而强大的汉字学习与练习工具。支持汉字笔顺演示、拼音查询、释义浏览以及字帖练习。">
     <meta property="twitter:image" content="https://hanziflow.web.app/icon-512.png">
 
+    <!-- Structured Data for Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "HanziFlow",
+      "url": "https://hanziflow.web.app",
+      "description": "一个简约而强大的汉字学习与练习工具。支持汉字笔顺演示、拼音查询、释义浏览以及字帖练习。",
+      "applicationCategory": "EducationApplication",
+      "operatingSystem": "Web",
+      "author": {
+        "@type": "Organization",
+        "name": "HanziFlow Team"
+      }
+    }
+    </script>
+
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./icon-512.png">
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Ma+Shan+Zheng&display=swap"
+        rel="stylesheet">
     <style>
         body {
             background-color: #fcfaf2;
@@ -45,9 +64,11 @@
             -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
+
         .brush-font {
             font-family: 'Ma Shan Zheng', cursive;
         }
+
         /* 针对 Android 平板全屏优化的微调 */
         @media (display-mode: standalone) {
             header {
@@ -55,7 +76,7 @@
             }
         }
     </style>
-<script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react/": "https://esm.sh/react@^19.2.3/",
@@ -66,10 +87,12 @@
   }
 }
 </script>
-<link rel="stylesheet" href="./index.css">
+    <link rel="stylesheet" href="./index.css">
 </head>
+
 <body class="overflow-hidden">
     <div id="root"></div>
-<script type="module" src="./index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
 </body>
+
 </html>
