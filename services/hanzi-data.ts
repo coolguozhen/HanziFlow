@@ -10,6 +10,7 @@ import 'cnchar-idiom';
 import 'cnchar-words';
 import { HanziInfo, SearchResult } from "../types";
 import { getFrequencySort } from "./frequency-data";
+import { logger } from "./logger";
 
 // zdict.js 数据接口类型: 拼音 -> 释义数组 的映射
 // 例如: { "shèng": ["兴旺...", "炽烈..."], "chéng": ["把东西放进去..."] }
@@ -50,7 +51,7 @@ const loadCachedMeanings = (): Record<string, { meaning: string; examples: strin
       }
     }
   } catch (error) {
-    console.log('加载缓存失败:', error);
+    logger.log('加载缓存失败:', error);
   }
   return {};
 };
@@ -67,7 +68,7 @@ const saveCachedMeanings = (meanings: Record<string, { meaning: string; examples
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
   } catch (error) {
-    console.log('保存缓存失败:', error);
+    logger.log('保存缓存失败:', error);
   }
 };
 
@@ -78,7 +79,7 @@ let MEANING_CACHE = loadCachedMeanings();
 export const clearZdictCache = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(ZDICT_CACHE_KEY);
-    console.log('已清除 zdict 缓存');
+    logger.log('已清除 zdict 缓存');
   }
 };
 
@@ -106,26 +107,26 @@ const loadZdictData = async (): Promise<void> => {
               const hasOldFormat = 'pinyin' in sampleChar || 'definitions' in sampleChar;
 
               if (hasOldFormat) {
-                console.log('检测到旧格式缓存数据，将清除并重新加载');
+                logger.log('检测到旧格式缓存数据，将清除并重新加载');
                 localStorage.removeItem(ZDICT_CACHE_KEY);
               } else {
                 ZDICT_DATA = data;
                 ZDICT_LOADED = true;
-                console.log(`从缓存加载 zdict 数据成功，共 ${keyCount} 个汉字`);
+                logger.log(`从缓存加载 zdict 数据成功，共 ${keyCount} 个汉字`);
                 // 延迟构建索引，避免阻塞页面加载
                 setTimeout(() => buildPinyinIndex(), 0);
                 return;
               }
             }
           } else {
-            console.log(`缓存数据格式不正确（只有 ${keyCount} 个键），将清除缓存并重新加载`);
+            logger.log(`缓存数据格式不正确（只有 ${keyCount} 个键），将清除缓存并重新加载`);
             // 清除无效缓存
             localStorage.removeItem(ZDICT_CACHE_KEY);
           }
         }
       }
     } catch (error) {
-      console.log('从缓存加载 zdict 数据失败:', error);
+      logger.log('从缓存加载 zdict 数据失败:', error);
       // 清除损坏的缓存
       if (typeof window !== 'undefined') {
         localStorage.removeItem(ZDICT_CACHE_KEY);
@@ -171,13 +172,13 @@ const loadZdictData = async (): Promise<void> => {
                 timestamp: Date.now()
               };
               localStorage.setItem(ZDICT_CACHE_KEY, JSON.stringify(cacheData));
-              console.log(`✅ 成功加载 zdict 数据，共 ${Object.keys(ZDICT_DATA).length} 个汉字，索引 ${PINYIN_INDEX.size} 个拼音`);
+              logger.log(`✅ 成功加载 zdict 数据，共 ${Object.keys(ZDICT_DATA).length} 个汉字，索引 ${PINYIN_INDEX.size} 个拼音`);
             } catch (e) {
-              console.log('保存 zdict 缓存失败:', e);
+              logger.log('保存 zdict 缓存失败:', e);
             }
           }
         } else {
-          console.log('⚠️  zdict 数据格式不正确，跳过');
+          logger.log('⚠️  zdict 数据格式不正确，跳过');
         }
         return;
       }
@@ -190,8 +191,8 @@ const loadZdictData = async (): Promise<void> => {
 
   // 只在所有路径都失败时显示一次警告
   if (!ZDICT_LOADED) {
-    console.log('⚠️  无法加载 zdict 数据，将使用 cnchar 和缓存数据');
-    console.log('💡 提示: 运行 npm run download-zdict 可以自动下载 zdict 数据');
+    logger.log('⚠️  无法加载 zdict 数据，将使用 cnchar 和缓存数据');
+    logger.log('💡 提示: 运行 npm run download-zdict 可以自动下载 zdict 数据');
   }
 };
 
@@ -291,13 +292,13 @@ const buildPinyinIndex = (): void => {
     }
   }
 
-  console.log(`✅ 拼音索引构建完成，共 ${PINYIN_INDEX.size} 个索引键`);
+  logger.log(`✅ 拼音索引构建完成，共 ${PINYIN_INDEX.size} 个索引键`);
 };
 
 // 从 zdict 数据中搜索拼音（使用索引快速查表）
 const searchFromZdict = (pinyinPrefix: string): SearchResult[] => {
   if (!ZDICT_LOADED) {
-    console.log('zdict 数据未加载');
+    logger.log('zdict 数据未加载');
     return [];
   }
 
@@ -383,7 +384,7 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
 
   // 方法1: 使用 zdict 近似搜索（数据最完整，包含多音字）
   if (ZDICT_LOADED) {
-    console.log(`使用 zdict 搜索: "${normalizedPinyin}"`);
+    logger.log(`使用 zdict 搜索: "${normalizedPinyin}"`);
     const zdictResults = searchFromZdict(normalizedPinyin);
 
     for (const result of zdictResults) {
@@ -420,7 +421,7 @@ export const searchCharactersByPinyin = async (keyword: string): Promise<SearchR
         });
       }
     } catch (error) {
-      console.log('cnchar 搜索失败:', error);
+      logger.log('cnchar 搜索失败:', error);
     }
   }
 
@@ -684,16 +685,16 @@ export const initializeDatabaseExpansion = async (): Promise<void> => {
           if (toExpand.length > 0) {
             const count = await expandMeaningCache(toExpand);
             if (count > 0) {
-              console.log(`✅ 成功扩充 ${count} 个常用汉字的释义`);
+              logger.log(`✅ 成功扩充 ${count} 个常用汉字的释义`);
             }
           }
         }
       } catch (e) {
-        console.log('扩充缓存失败:', e);
+        logger.log('扩充缓存失败:', e);
       }
     }, 1000);
   } catch (error) {
-    console.log('初始化加载失败:', error);
+    logger.log('初始化加载失败:', error);
   }
 };
 

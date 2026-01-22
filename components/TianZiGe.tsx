@@ -1,5 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
+import { HanziWriterInstance } from '../types';
 
 interface TianZiGeProps {
   character: string;
@@ -8,7 +9,7 @@ interface TianZiGeProps {
 
 const TianZiGe: React.FC<TianZiGeProps> = ({ character, size = 400 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const writerRef = useRef<any>(null);
+  const writerRef = useRef<HanziWriterInstance | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isQuizMode, setIsQuizMode] = useState(false);
   const currentSizeRef = useRef<number>(size);
