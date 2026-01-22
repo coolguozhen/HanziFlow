@@ -11,89 +11,147 @@ const TianZiGe: React.FC<TianZiGeProps> = ({ character, size = 400 }) => {
   const writerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isQuizMode, setIsQuizMode] = useState(false);
+  const currentSizeRef = useRef<number>(size);
 
+  // 绘制田字格背景的函数
+  const drawGrid = (svg: SVGElement, gridSize: number) => {
+    // 检查是否已有 grid 组
+    const existingGrid = svg.querySelector('.tianzi-grid');
+    if (existingGrid) return;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'tianzi-grid');
+    g.setAttribute('stroke', '#f87171');
+    g.setAttribute('stroke-width', '1');
+    g.setAttribute('stroke-dasharray', '4,4');
+    g.setAttribute('opacity', '0.4');
+
+    const lines = [
+      { x1: 0, y1: gridSize / 2, x2: gridSize, y2: gridSize / 2 },
+      { x1: gridSize / 2, y1: 0, x2: gridSize / 2, y2: gridSize },
+      { x1: 0, y1: 0, x2: gridSize, y2: gridSize },
+      { x1: gridSize, y1: 0, x2: 0, y2: gridSize }
+    ];
+
+    lines.forEach(l => {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', l.x1.toString());
+      line.setAttribute('y1', l.y1.toString());
+      line.setAttribute('x2', l.x2.toString());
+      line.setAttribute('y2', l.y2.toString());
+      g.appendChild(line);
+    });
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', '0'); rect.setAttribute('y', '0');
+    rect.setAttribute('width', gridSize.toString()); rect.setAttribute('height', gridSize.toString());
+    rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', '#f87171');
+    rect.setAttribute('stroke-width', '2'); rect.setAttribute('opacity', '0.6');
+    g.appendChild(rect);
+
+    svg.insertBefore(g, svg.firstChild);
+  };
+
+  // 初始化 HanziWriter 实例（仅在尺寸变化或首次加载时）
   useEffect(() => {
     if (!containerRef.current || !character) return;
 
-    // 1. 切换汉字时立即重置状态并停止任何正在进行的动画
-    setIsPlaying(false);
-    setIsQuizMode(false);
+    // 如果尺寸没变且实例存在，只更新字符
+    if (writerRef.current && currentSizeRef.current === size) {
+      return;
+    }
 
-    const cleanupWriter = () => {
-      if (writerRef.current) {
-        try {
-          // 增加极其严格的检查防止 TypeError
-          if (typeof writerRef.current.cancelAnimation === 'function') {
-            writerRef.current.cancelAnimation();
-          }
-        } catch (e) {
-          console.warn("HanziWriter cleanup suppressed:", e);
+    // 清理旧实例
+    if (writerRef.current) {
+      try {
+        if (typeof writerRef.current.cancelAnimation === 'function') {
+          writerRef.current.cancelAnimation();
         }
-        writerRef.current = null;
+      } catch (e) {
+        console.warn("HanziWriter cleanup suppressed:", e);
       }
-    };
+      writerRef.current = null;
+    }
 
-    cleanupWriter();
-
-    // 2. 清空旧容器内容
+    // 清空容器
     containerRef.current.innerHTML = '';
+    currentSizeRef.current = size;
 
-    // 3. 初始化新实例
+    // 创建新实例
     try {
       writerRef.current = window.HanziWriter.create(containerRef.current, character, {
         width: size,
         height: size,
         padding: 25,
-        strokeColor: '#b91c1c',     // 更有质感的朱砂红
+        strokeColor: '#b91c1c',
         outlineColor: '#f3f4f6',
         showOutline: true,
         showCharacter: true,
-        strokeAnimationSpeed: 0.8,   // 放慢速度，让用户看清起笔收笔
-        delayBetweenStrokes: 400,    // 笔画间隔加长，更有节奏感
+        strokeAnimationSpeed: 0.8,
+        delayBetweenStrokes: 400,
         onComplete: () => {
           setIsPlaying(false);
         }
       });
 
-      // 绘制精美的田字格背景
+      // 绘制田字格背景
       const svg = containerRef.current.querySelector('svg');
       if (svg) {
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.setAttribute('stroke', '#f87171');
-        g.setAttribute('stroke-width', '1');
-        g.setAttribute('stroke-dasharray', '4,4');
-        g.setAttribute('opacity', '0.4');
-
-        const lines = [
-          { x1: 0, y1: size / 2, x2: size, y2: size / 2 },
-          { x1: size / 2, y1: 0, x2: size / 2, y2: size },
-          { x1: 0, y1: 0, x2: size, y2: size },
-          { x1: size, y1: 0, x2: 0, y2: size }
-        ];
-
-        lines.forEach(l => {
-          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          line.setAttribute('x1', l.x1.toString());
-          line.setAttribute('y1', l.y1.toString());
-          line.setAttribute('x2', l.x2.toString());
-          line.setAttribute('y2', l.y2.toString());
-          g.appendChild(line);
-        });
-
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', '0'); rect.setAttribute('y', '0');
-        rect.setAttribute('width', size.toString()); rect.setAttribute('height', size.toString());
-        rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', '#f87171');
-        rect.setAttribute('stroke-width', '2'); rect.setAttribute('opacity', '0.6');
-        g.appendChild(rect);
-
-        svg.insertBefore(g, svg.firstChild);
+        drawGrid(svg as SVGElement, size);
       }
     } catch (err) {
       console.error("HanziWriter initialization failed:", err);
     }
 
-    return () => cleanupWriter();
+    return () => {
+      if (writerRef.current) {
+        try {
+          if (typeof writerRef.current.cancelAnimation === 'function') {
+            writerRef.current.cancelAnimation();
+          }
+        } catch (e) { }
+        writerRef.current = null;
+      }
+    };
+  }, [size]); // 仅当 size 变化时重建实例
+
+  // 当字符变化时，使用 setCharacter() 更新
+  useEffect(() => {
+    if (!character) return;
+
+    // 重置状态
+    setIsPlaying(false);
+    setIsQuizMode(false);
+
+    if (writerRef.current && typeof writerRef.current.setCharacter === 'function') {
+      // 使用 setCharacter API 替换字符（比重建实例更高效）
+      writerRef.current.setCharacter(character);
+    } else if (containerRef.current && !writerRef.current) {
+      // 如果实例还不存在，创建新实例
+      try {
+        writerRef.current = window.HanziWriter.create(containerRef.current, character, {
+          width: size,
+          height: size,
+          padding: 25,
+          strokeColor: '#b91c1c',
+          outlineColor: '#f3f4f6',
+          showOutline: true,
+          showCharacter: true,
+          strokeAnimationSpeed: 0.8,
+          delayBetweenStrokes: 400,
+          onComplete: () => {
+            setIsPlaying(false);
+          }
+        });
+
+        const svg = containerRef.current.querySelector('svg');
+        if (svg) {
+          drawGrid(svg as SVGElement, size);
+        }
+      } catch (err) {
+        console.error("HanziWriter initialization failed:", err);
+      }
+    }
   }, [character, size]);
 
   const handleAnimate = () => {
@@ -165,8 +223,8 @@ const TianZiGe: React.FC<TianZiGeProps> = ({ character, size = 400 }) => {
         <button
           onClick={handleQuiz}
           className={`px-10 py-4 rounded-2xl font-bold shadow-md transition-all active:scale-95 flex items-center gap-3 min-w-[180px] justify-center ${isQuizMode
-              ? 'bg-amber-500 text-white border-2 border-amber-600 shadow-amber-200/50'
-              : 'bg-white text-amber-700 border-2 border-amber-500 hover:bg-amber-50'
+            ? 'bg-amber-500 text-white border-2 border-amber-600 shadow-amber-200/50'
+            : 'bg-white text-amber-700 border-2 border-amber-500 hover:bg-amber-50'
             }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>

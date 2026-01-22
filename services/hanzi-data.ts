@@ -15,6 +15,13 @@ import { getFrequencySort } from "./frequency-data";
 // 例如: { "shèng": ["兴旺...", "炽烈..."], "chéng": ["把东西放进去..."] }
 type ZdictEntry = Record<string, string[]>;
 
+// 拼音索引条目：字符 + 原始拼音
+interface PinyinIndexEntry {
+  char: string;
+  pinyin: string;  // 带声调的原始拼音
+  firstDef: string; // 第一个释义（用于 brief）
+}
+
 // 缓存键名
 const CACHE_KEY = 'hanzi_meaning_cache';
 const ZDICT_CACHE_KEY = 'zdict_data_cache';
@@ -24,6 +31,10 @@ const CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30天
 // zdict.js 数据存储
 let ZDICT_DATA: Record<string, ZdictEntry> = {};
 let ZDICT_LOADED = false;
+
+// 拼音索引：无声调拼音 -> 匹配的汉字条目列表
+// 这个索引在加载 zdict 数据时构建，用于快速搜索
+let PINYIN_INDEX: Map<string, PinyinIndexEntry[]> = new Map();
 
 // 从localStorage加载缓存的释义和组词数据
 const loadCachedMeanings = (): Record<string, { meaning: string; examples: string[] }> => {
@@ -101,6 +112,8 @@ const loadZdictData = async (): Promise<void> => {
                 ZDICT_DATA = data;
                 ZDICT_LOADED = true;
                 console.log(`从缓存加载 zdict 数据成功，共 ${keyCount} 个汉字`);
+                // 延迟构建索引，避免阻塞页面加载
+                setTimeout(() => buildPinyinIndex(), 0);
                 return;
               }
             }
@@ -146,6 +159,9 @@ const loadZdictData = async (): Promise<void> => {
           ZDICT_DATA = data;
           ZDICT_LOADED = true;
 
+          // 构建拼音索引以加速搜索
+          buildPinyinIndex();
+
           // 保存到 localStorage
           if (typeof window !== 'undefined') {
             try {
@@ -155,7 +171,7 @@ const loadZdictData = async (): Promise<void> => {
                 timestamp: Date.now()
               };
               localStorage.setItem(ZDICT_CACHE_KEY, JSON.stringify(cacheData));
-              console.log(`✅ 成功加载 zdict 数据，共 ${Object.keys(ZDICT_DATA).length} 个汉字`);
+              console.log(`✅ 成功加载 zdict 数据，共 ${Object.keys(ZDICT_DATA).length} 个汉字，索引 ${PINYIN_INDEX.size} 个拼音`);
             } catch (e) {
               console.log('保存 zdict 缓存失败:', e);
             }
@@ -242,52 +258,68 @@ const removeTone = (pinyin: string): string => {
     .replace(/[1-5]/g, '');
 };
 
-// 从 zdict 数据中搜索拼音（近似搜索）
+// 构建拼音索引，在加载 zdict 数据后调用
+// 这将把 O(n) 的遍历搜索变为 O(k) 的查表操作（k 为匹配的拼音键数量）
+const buildPinyinIndex = (): void => {
+  PINYIN_INDEX.clear();
+
+  for (const [char, pinyinMap] of Object.entries(ZDICT_DATA)) {
+    // 确保 char 是有效的单个汉字字符
+    if (!char || char.length !== 1 || !/[\u4e00-\u9fa5]/.test(char)) {
+      continue;
+    }
+
+    for (const [pinyin, definitions] of Object.entries(pinyinMap)) {
+      const pinyinNoTone = removeTone(pinyin);
+      const firstDef = definitions && definitions.length > 0 ? definitions[0] : "常用汉字";
+
+      const entry: PinyinIndexEntry = {
+        char,
+        pinyin,
+        firstDef
+      };
+
+      // 为每个可能的前缀建立索引（支持前缀搜索）
+      // 例如 "sheng" 会添加到 "s", "sh", "she", "shen", "sheng"
+      for (let i = 1; i <= pinyinNoTone.length; i++) {
+        const prefix = pinyinNoTone.slice(0, i);
+        if (!PINYIN_INDEX.has(prefix)) {
+          PINYIN_INDEX.set(prefix, []);
+        }
+        PINYIN_INDEX.get(prefix)!.push(entry);
+      }
+    }
+  }
+
+  console.log(`✅ 拼音索引构建完成，共 ${PINYIN_INDEX.size} 个索引键`);
+};
+
+// 从 zdict 数据中搜索拼音（使用索引快速查表）
 const searchFromZdict = (pinyinPrefix: string): SearchResult[] => {
   if (!ZDICT_LOADED) {
     console.log('zdict 数据未加载');
     return [];
   }
 
-  const results: SearchResult[] = [];
   const normalizedPrefix = pinyinPrefix.toLowerCase();
-  let checkedCount = 0;
 
-  // 遍历所有汉字，查找拼音匹配的
-  for (const [char, pinyinMap] of Object.entries(ZDICT_DATA)) {
-    checkedCount++;
+  // 使用索引直接查表，O(1) 操作
+  const indexEntries = PINYIN_INDEX.get(normalizedPrefix);
 
-    // 确保 char 是有效的单个汉字字符
-    if (!char || char.length !== 1 || !/[\u4e00-\u9fa5]/.test(char)) {
-      continue;
-    }
-
-    // pinyinMap 是 { "shèng": ["..."], "chéng": ["..."] }
-    // 遍历该字的所有拼音
-    for (const [pinyin, definitions] of Object.entries(pinyinMap)) {
-      // 移除声调后进行比较
-      const entryPinyinNoTone = removeTone(pinyin);
-
-      // 检查拼音是否以输入的前缀开头（精确或前缀匹配）
-      if (entryPinyinNoTone.startsWith(normalizedPrefix)) {
-        // 构建释义简述
-        const firstDef = definitions && definitions.length > 0 ? definitions[0] : "常用汉字";
-        const brief = firstDef.split('，')[0]?.split('：')[0] || firstDef;
-
-        results.push({
-          char,
-          pinyin: pinyin, // 返回具体的带声调拼音
-          brief
-        });
-
-        // 注意：这里不 break，因为一个字可能有多个拼音都匹配（虽然少见，但逻辑上允许）
-      }
-    }
-
-    if (results.length >= 500) break;
+  if (!indexEntries || indexEntries.length === 0) {
+    return [];
   }
 
-  console.log(`zdict 搜索完成: 检查了 ${checkedCount} 个字符，找到 ${results.length} 个结果`);
+  // 转换为 SearchResult 格式
+  const results: SearchResult[] = indexEntries.slice(0, 500).map(entry => {
+    const brief = entry.firstDef.split('，')[0]?.split('：')[0] || entry.firstDef;
+    return {
+      char: entry.char,
+      pinyin: entry.pinyin,
+      brief
+    };
+  });
+
   return results;
 };
 
@@ -550,7 +582,7 @@ export const getCharacterDetails = async (char: string): Promise<HanziInfo | nul
 };
 
 // 使用 cnchar-voice 进行语音合成
-export const speakText = async (text: string, ctx: any): Promise<void> => {
+export const speakText = async (text: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     try {
       // 使用 cnchar 的语音功能

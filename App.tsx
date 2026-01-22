@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import SearchBar from './components/SearchBar';
 import TianZiGe from './components/TianZiGe';
-import { searchCharactersByPinyin, getCharacterDetails, speakText, getAudioContext, getRandomInitialResults } from './services/hanzi-data';
+import { searchCharactersByPinyin, getCharacterDetails, speakText, getRandomInitialResults } from './services/hanzi-data';
 import { HanziInfo, SearchResult } from './types';
 
 const App: React.FC = () => {
@@ -14,42 +14,42 @@ const App: React.FC = () => {
   const [playingText, setPlayingText] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
-  // 使用 Ref 来保持 handleSelectChar 的稳定引用，避免在 handleSearch 中产生依赖
-  const selectCharRef = useRef<((char: string) => Promise<void>) | null>(null);
+  // 使用 Ref 追踪播放状态，避免闭包问题
+  const isPlayingRef = useRef(false);
 
-  const handleSelectChar = useCallback(async (char: string) => {
-    setSelectedChar(prev => {
-      // 只有在字符真的改变，或者还没有详情时才加载
-      if (prev === char && detailRef.current) return prev;
+  // 当 selectedChar 变化时，获取汉字详情
+  useEffect(() => {
+    if (!selectedChar) return;
 
-      setLoadingDetail(true);
-      getCharacterDetails(char).then(data => {
+    let cancelled = false;
+    setLoadingDetail(true);
+
+    getCharacterDetails(selectedChar).then(data => {
+      if (!cancelled) {
         setDetail(data);
-        detailRef.current = data; // 同步更新 ref
         setLoadingDetail(false);
-      }).catch(e => {
+      }
+    }).catch(e => {
+      if (!cancelled) {
         console.error("Detail failed", e);
         setLoadingDetail(false);
-      });
-
-      return char;
+      }
     });
-  }, []); // 真正的稳定引用
 
-  // 保存到 ref 供 handleSearch 使用
-  useEffect(() => {
-    selectCharRef.current = handleSelectChar;
-  }, [handleSelectChar]);
+    return () => { cancelled = true; };
+  }, [selectedChar]);
 
-  const detailRef = useRef<HanziInfo | null>(null);
+  const handleSelectChar = useCallback((char: string) => {
+    setSelectedChar(prev => prev === char ? prev : char);
+  }, []);
 
   const handleSearch = useCallback(async (pinyin: string) => {
     setLoading(true);
     try {
       const data = await searchCharactersByPinyin(pinyin);
       setResults(data);
-      if (data.length > 0 && selectCharRef.current) {
-        selectCharRef.current(data[0].char);
+      if (data.length > 0) {
+        setSelectedChar(data[0].char);
       }
     } catch (e) {
       console.error("Search failed", e);
@@ -58,18 +58,24 @@ const App: React.FC = () => {
   }, []);
 
   const handleSpeak = useCallback(async (text: string) => {
-    if (playingText) return;
+    // 使用 ref 检查播放状态，避免闭包中引用过期 state
+    if (isPlayingRef.current) return;
 
+    isPlayingRef.current = true;
     setPlayingText(text);
     try {
-      await speakText(text, null as any);
+      await speakText(text);
       const duration = text.length * 200;
-      setTimeout(() => setPlayingText(null), duration);
+      setTimeout(() => {
+        setPlayingText(null);
+        isPlayingRef.current = false;
+      }, duration);
     } catch (e) {
       console.error("Speak process failed:", e);
       setPlayingText(null);
+      isPlayingRef.current = false;
     }
-  }, [playingText]);
+  }, []);
 
   useEffect(() => {
     // 初始化随机汉字（确保有12个）
@@ -77,7 +83,7 @@ const App: React.FC = () => {
       setLoading(true);
       const data = await getRandomInitialResults();
       setResults(data);
-      if (data.length > 0) handleSelectChar(data[0].char);
+      if (data.length > 0) setSelectedChar(data[0].char);
       setLoading(false);
     };
     init();
